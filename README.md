@@ -1,2 +1,2 @@
-# luzhangmse-gmail.com
+# Data analysis code
 R-Data Analysis

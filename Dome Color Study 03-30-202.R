@@ -40,7 +40,7 @@ for (i in temp) {
 
 #ICC function takes a single argument - dataframe, 
 #..where the order of HR,HR.1 doesn't matter
-df_sum <- df %>% 
+df_sum_act <- df %>% 
   drop_na(HR.1,HR)%>% 
   group_by(Color, Activity, Type) %>% 
   summarise(MAPE = round(MAPE(HR,HR.1)*100,1),
@@ -91,13 +91,26 @@ ICC
 setwd('C:/Users/57lzhang.US04WW4008/Desktop/GG - dome eval/Sunglasses')
 temp<-list.files(pattern = "^PTek*")
 for (i in temp) {
+  #string operations
+  tt<-str_split(i,'-')[[1]][3]
+  activity <- str_split(tt, ' ')[[1]][3]
+  location <- str_split(tt, ' ')[[1]][4]
+  title<-paste(activity,location)
+  #data operations
   t <- read.csv(i, header = T)
   p <-ggplot(t,aes(x=as.numeric(row.names(t))))+
-    geom_line(aes(y=HR,color="darkred"))+
-    geom_line(aes(y=HR.1,color="steelblue"))+
+    geom_line(aes(y=HR,color="darkred"),size=1)+
+    geom_line(aes(y=HR.1,color="steelblue"),size=1)+
+    ggtitle(title)+
     ylab("Heart Rate (bpm)")+
     xlab("Seconds(s)")+
     scale_color_discrete(name = "Sensor", 
-                         labels = c("BiometRIC", "Polar"))
+                         labels = c("BiometRIC", "Polar"))+
+    theme(axis.text=element_text(size=12),
+          title = element_text(size=16),
+          axis.title.x = element_text(size=16),
+          axis.title.y = element_text(size=16),
+          legend.title = element_text(size=16),
+          legend.text = element_text(size=16))
   print(p)
 }

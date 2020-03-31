@@ -5,6 +5,7 @@ library(ggplot2)
 library(stringr)#String operations
 library(psych)#ICC
 library(formattable)#make a table
+library(rlist)#list operation
 
 #extract data
 setwd('C:/Users/57lzhang.US04WW4008/Desktop/GG - dome eval/Dome Color')
@@ -84,4 +85,19 @@ ICC <- g +
              linetype="dashed",
              color="red")
 ICC
-#changed a line
+
+#Sunlight
+#Plot individual figure
+setwd('C:/Users/57lzhang.US04WW4008/Desktop/GG - dome eval/Sunglasses')
+temp<-list.files(pattern = "^PTek*")
+for (i in temp) {
+  t <- read.csv(i, header = T)
+  p <-ggplot(t,aes(x=as.numeric(row.names(t))))+
+    geom_line(aes(y=HR,color="darkred"))+
+    geom_line(aes(y=HR.1,color="steelblue"))+
+    ylab("Heart Rate (bpm)")+
+    xlab("Seconds(s)")+
+    scale_color_discrete(name = "Sensor", 
+                         labels = c("BiometRIC", "Polar"))
+  print(p)
+}

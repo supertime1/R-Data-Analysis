@@ -13,11 +13,11 @@ temp<-list.files(pattern = "^PTek*")
 
 df <- data.frame()
 for (i in temp) {
-  tt<-str_split(i,'-')[[1]][3]
+  tt<-str_split(i,'-')[[1]][5]
   #extract activity type from each filename
   activity <- str_split(tt, ' ')[[1]][3]
   #extract dome color type from each filename
-  color_csv <- str_split(tt, ' ')[[1]][7]
+  color_csv <- str_split(tt, ' ')[[1]][8]
   color<-gsub(".csv", "", color_csv)
   #extact dome type from each filename
   type <- str_split(tt, ' ')[[1]][6]

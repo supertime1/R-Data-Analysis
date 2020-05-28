@@ -5,12 +5,20 @@ library(ggplot2)
 library(stringr)#String operations
 library(psych)#ICC
 library(formattable)#make a table
-library(rlist)#list operation
 
 #extract data
-setwd('C:/Users/57lzhang.US04WW4008/Desktop/GG - dome eval/Dome Color')
+setwd('C:/Users/57lzhang.US04WW4008/Desktop/Ear dome eva/All Color')
 temp<-list.files(pattern = "^PTek*")
 
+#Check number of files for each dome type
+a = c("open","vented","power")
+for (i in a){
+  
+  dome_type <- list.files(pattern = str_c("*",i,"*"))
+  print(str_c("There are ", length(dome_type), " ", i, " dome files"))
+}
+
+#Combine all data into one big dataframe
 df <- data.frame()
 for (i in temp) {
   tt<-str_split(i,'-')[[1]][5]
@@ -25,13 +33,19 @@ for (i in temp) {
   t <-read.csv(i, header = T)
   t1 <- t%>%mutate(Activity = activity)%>%
     mutate(Color = color)%>%
-    mutate(Type = type)
+    mutate(Type = type)%>%select(-RRi,-RRi.1)
   #select the first 3mins data, with excluding the first 30s
   t1<-t1%>%slice(32:212)
   
   #combine all files into a big one
   df <-bind_rows(t1,df)
 }
+
+#Sanity check the joint dataframe 
+##make sure there is no unexpected value
+unique(df$Color)
+unique(df$Activity)
+unique(df$Type)
 
 #this will create a summarized table
 #pay attention to the order or HR, HR.1 in raw csv file, 
@@ -66,9 +80,9 @@ formattable(df_sum)
 g<-ggplot(df_sum_act,aes(x=Type,y=MAPE))
 MAPE <- g + 
   geom_bar(stat='identity', 
-                     position=position_dodge(),
-                     aes(fill=Color),
-                     color='black') + 
+           position=position_dodge(),
+           aes(fill=Color),
+           color='black') + 
   facet_grid(Activity~.) +
   labs(y="MAPE(%)")
 MAPE

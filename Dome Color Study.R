@@ -102,7 +102,7 @@ ICC
 
 #Sunlight
 #Plot individual figure
-setwd('C:/Users/57lzhang.US04WW4008/Desktop/GG - dome eval/Sunglasses')
+setwd('C:/Users/57lzhang.US04WW4008/Desktop/Ear dome eva/All Sunlight')
 temp<-list.files(pattern = "^PTek*")
 for (i in temp) {
   #string operations

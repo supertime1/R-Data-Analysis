@@ -30,10 +30,24 @@ for (i in temp) {
   #extact dome type from each filename
   type <- str_split(tt, ' ')[[1]][6]
   
+  
   t <-read.csv(i, header = T)
-  t1 <- t%>%mutate(Activity = activity)%>%
+  
+  #find the correct HR column  
+  
+  Polar_HR_idx = grep("^Polar*",colnames(t))+1
+  Bio_HR_idx = grep("^ENOS*",colnames(t))+1
+  
+  
+  #select polar and product HR column
+  t0 <- t%>%select(polar_hr = colnames(t)[Polar_HR_idx],
+                   b_hr = colnames(t)[Bio_HR_idx],
+                   Timestamp)
+  
+  t1 <- t0%>%
+    mutate(Activity = activity)%>%
     mutate(Color = color)%>%
-    mutate(Type = type)%>%select(-RRi,-RRi.1)
+    mutate(Type = type)
   #select the first 3mins data, with excluding the first 30s
   t1<-t1%>%slice(32:212)
   
@@ -55,23 +69,23 @@ unique(df$Type)
 #ICC function takes a single argument - dataframe, 
 #..where the order of HR,HR.1 doesn't matter
 df_sum_act <- df %>% 
-  drop_na(HR.1,HR)%>% 
+  drop_na(b_hr,polar_hr)%>% 
   group_by(Color, Activity, Type) %>% 
-  summarise(MAPE = round(MAPE(HR,HR.1)*100,1),
-            MAE = round(MAE(HR,HR.1),1),
-            Pearson_Corr = round(cor(HR,HR.1),2),
-            ICC = round(ICC(data.frame(HR,HR.1))$results[2,2],2))
+  summarise(MAPE = round(MAPE(b_hr,polar_hr)*100,1),
+            MAE = round(MAE(b_hr,polar_hr),1),
+            Pearson_Corr = round(cor(b_hr,polar_hr),2),
+            ICC = round(ICC(data.frame(b_hr,polar_hr))$results[2,2],2))
 
 formattable(df_sum_act)
 
 #turn off the Activity group
 df_sum <- df %>% 
-  drop_na(HR.1,HR)%>% 
+  drop_na(b_hr,polar_hr)%>% 
   group_by(Color, Type) %>% 
-  summarise(MAPE = round(MAPE(HR,HR.1)*100,1),
-            MAE = round(MAE(HR,HR.1),1),
-            Pearson_Corr = round(cor(HR,HR.1),2),
-            ICC = round(ICC(data.frame(HR,HR.1))$results[2,2],2))
+  summarise(MAPE = round(MAPE(b_hr,polar_hr)*100,1),
+            MAE = round(MAE(b_hr,polar_hr),1),
+            Pearson_Corr = round(cor(b_hr,polar_hr),2),
+            ICC = round(ICC(data.frame(b_hr,polar_hr))$results[2,2],2))
 
 formattable(df_sum)
 
@@ -112,9 +126,26 @@ for (i in temp) {
   title<-paste(activity,location)
   #data operations
   t <- read.csv(i, header = T)
-  p <-ggplot(t,aes(x=as.numeric(row.names(t))))+
-    geom_line(aes(y=HR,color="darkred"),size=1)+
-    geom_line(aes(y=HR.1,color="steelblue"),size=1)+
+  
+  #find the correct HR column  
+  
+  Polar_HR_idx = grep("^Polar*",colnames(t))+1
+  Bio_HR_idx = grep("^ENOS*",colnames(t))+1
+  
+  
+  #select polar and product HR column
+  t0 <- t%>%select(polar_hr = colnames(t)[Polar_HR_idx],
+                   b_hr = colnames(t)[Bio_HR_idx],
+                   Timestamp)
+  
+  t1 <- t0%>%
+    mutate(Activity = activity)%>%
+    mutate(Color = color)%>%
+    mutate(Type = type)
+  
+  p <-ggplot(t1,aes(x=as.numeric(row.names(t1))))+
+    geom_line(aes(y=b_hr,color="darkred"),size=1)+
+    geom_line(aes(y=polar_hr,color="steelblue"),size=1)+
     ggtitle(title)+
     ylab("Heart Rate (bpm)")+
     xlab("Seconds(s)")+

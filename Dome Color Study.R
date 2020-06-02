@@ -206,14 +206,21 @@ ICC <- g +
 ICC
 ###########################################
 #Plot individual figure
-setwd('C:/Users/57lzhang.US04WW4008/Desktop/Ear dome eva/All Sunlight')
+setwd('C:/Users/57lzhang.US04WW4008/Desktop/Ear dome eva/All Sunlight/New folder')
 temp<-list.files(pattern = "^PTek*")
+df <- data.frame()
+
 for (i in temp) {
   #string operations
   tt<-str_split(i,'-')[[1]][3]
   activity <- str_split(tt, ' ')[[1]][3]
   location <- str_split(tt, ' ')[[1]][4]
-  title<-paste(activity,location)
+  subject <- str_split(tt, ' ')[[1]][2]
+  light_csv <-str_split(tt, ' ')[[1]][9]
+  light<-gsub(".csv", "", light_csv)
+  version <- str_split(tt, ' ')[[1]][8]
+  
+  
   #data operations
   t <- read.csv(i, header = T)
   
@@ -230,24 +237,32 @@ for (i in temp) {
   
   t1 <- t0%>%
     mutate(Activity = activity)%>%
-    mutate(Color = color)%>%
-    mutate(Type = type)
+    mutate(Location = location)%>%
+    mutate(Light = light)%>%
+    mutate(Subject = subject)%>%
+    mutate(Time = as.numeric(row.names(t0)))%>%
+    mutate(Version = version)
   
-  p <-ggplot(t1,aes(x=as.numeric(row.names(t1))))+
-    geom_line(aes(y=b_hr,color="darkred"),size=1)+
-    geom_line(aes(y=polar_hr,color="steelblue"),size=1)+
-    ggtitle(title)+
-    ylab("Heart Rate (bpm)")+
-    xlab("Seconds(s)")+
-    scale_color_discrete(name = "Sensor", 
-                         labels = c("BiometRIC", "Polar"))+
-    theme(axis.text=element_text(size=12),
-          title = element_text(size=16),
-          axis.title.x = element_text(size=16),
-          axis.title.y = element_text(size=16),
-          legend.title = element_text(size=16),
-          legend.text = element_text(size=16))
-  print(p)
+  df <-bind_rows(t1,df)
 }
+
+
+p <-ggplot(df,aes(x = Time))+
+  geom_line(aes(y=b_hr,color="darkred"),size=1)+
+  geom_line(aes(y=polar_hr,color="steelblue"),size=1)+
+  ggtitle("No Sunglass")+
+  ylim(50,110)+
+  ylab("Heart Rate (bpm)")+
+  xlab("Seconds(s)")+
+  facet_grid(Subject~Location)+
+  scale_color_discrete(name = "Sensor", 
+                       labels = c("BiometRIC", "Polar"))+
+  theme(axis.text=element_text(size=12),
+        axis.title.x = element_text(size=16),
+        axis.title.y = element_text(size=16),
+        legend.title = element_text(size=16),
+        legend.text = element_text(size=16))
+print(p)
+
 
 

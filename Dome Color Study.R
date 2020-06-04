@@ -37,12 +37,13 @@ for (i in temp) {
   
   Polar_HR_idx = grep("^Polar*",colnames(t))+1
   Bio_HR_idx = grep("^ENOS*",colnames(t))+1
-  
+  QoS_idx = grep("^ENOS*",colnames(t))+6
   
   #select polar and product HR column
   t0 <- t%>%select(polar_hr = colnames(t)[Polar_HR_idx],
                    b_hr = colnames(t)[Bio_HR_idx],
-                   Timestamp)
+                   Timestamp,
+                   QoS = colnames(t)[QoS_idx])
   
   t1 <- t0%>%
     mutate(Activity = activity)%>%
@@ -73,6 +74,7 @@ df_sum_act <- df %>%
   group_by(Color, Activity, Type) %>% 
   summarise(M_HR_P = round(mean(polar_hr),1),
             M_HR_B = round(mean(b_hr),1),
+            M_QoS = round(mean(QoS),1),
             MAPE = round(MAPE(b_hr,polar_hr)*100,1),
             MAE = round(MAE(b_hr,polar_hr),1),
             Pearson_Corr = round(cor(b_hr,polar_hr),2),
@@ -86,6 +88,7 @@ df_sum <- df %>%
   group_by(Color, Type) %>% 
   summarise(M_HR_P = round(mean(polar_hr),1),
             M_HR_B = round(mean(b_hr),1),
+            M_QoS = round(mean(QoS),1),
             MAPE = round(MAPE(b_hr,polar_hr)*100,1),
             MAE = round(MAE(b_hr,polar_hr),1),
             Pearson_Corr = round(cor(b_hr,polar_hr),2),
@@ -120,51 +123,62 @@ ICC
 ##############################################
 #Sunlight
 ##Make bar plot
-setwd('C:/Users/57lzhang.US04WW4008/Desktop/Ear dome eva/All Sunlight')
-temp<-list.files(pattern = "^PTek*")
+sun_tb <-function(directory){
+  
+  setwd(directory)
+  temp<-list.files(pattern = "^PTek*")
+  df <- data.frame()
+  
+  for (i in temp) {
+    #string operations
+    tt<-str_split(i,'-')[[1]][3]
+    activity <- str_split(tt, ' ')[[1]][3]
+    location <- str_split(tt, ' ')[[1]][4]
+    subject <- str_split(tt, ' ')[[1]][2]
+    light <-str_split(tt, ' ')[[1]][5]
+    device <- str_split(tt, ' ')[[1]][8]
+    
+    
+    #data operations
+    t <- read.csv(i, header = T)
+    
+    #find the correct HR column  
+    
+    Polar_HR_idx = grep("^Polar*",colnames(t))+1
+    Bio_HR_idx = grep("^ENOS*",colnames(t))+1
+    QoS_idx = grep("^ENOS*",colnames(t))+6
+    
+    
+    #select polar and product HR column
+    t0 <- t%>%select(polar_hr = colnames(t)[Polar_HR_idx],
+                     b_hr = colnames(t)[Bio_HR_idx],
+                     Timestamp,
+                     QoS = colnames(t)[QoS_idx])
+    
+    t1 <- t0%>%
+      mutate(Activity = activity)%>%
+      mutate(Location = toupper(location))%>%
+      mutate(Light = toupper(light))%>%
+      mutate(Subject = subject)%>%
+      mutate(Time = as.numeric(row.names(t0)))%>%
+      mutate(Device = toupper(device))
+    
+    df <-bind_rows(t1,df)
+  }
+  
+  return(df)
 
-
-#Combine all data into one big dataframe
-df <- data.frame()
-for (i in temp) {
-  tt<-str_split(i,'-')[[1]][3]
-  #extract activity type from each filename
-  location <- str_split(tt, ' ')[[1]][4]
-  #extract dome color type from each filename
-  light <- str_split(tt, ' ')[[1]][5]
-  
-  device_csv <-str_split(tt, ' ')[[1]][8]
-  device<-gsub(".csv", "", device_csv)
-  
-  
-  t <-read.csv(i, header = T)
-  
-  #find the correct HR column  
-  
-  Polar_HR_idx = grep("^Polar*",colnames(t))+1
-  Bio_HR_idx = grep("^ENOS*",colnames(t))+1
-  
-  
-  #select polar and product HR column
-  t0 <- t%>%select(polar_hr = colnames(t)[Polar_HR_idx],
-                   b_hr = colnames(t)[Bio_HR_idx],
-                   Timestamp)
-  
-  t1 <- t0%>%
-    mutate(Location = toupper(location))%>%
-    mutate(Light = toupper(light))%>%
-    mutate(Device = toupper(device))
-  #select the first 3mins data, with excluding the first 30s
-  t1<-t1%>%slice(32:212)
-  
-  #combine all files into a big one
-  df <-bind_rows(t1,df)
 }
+
+directory = 'C:/Users/57lzhang.US04WW4008/Desktop/Ear dome eva/All Sunlight'
+df <-sun_tb(directory)
 
 #sanity check
 unique(df$Location)
 unique(df$Light)
 unique(df$Device)
+unique(df$Subject)
+unique(df$Activity)
 
 #make a stats table
 df_sum <- df %>% 
@@ -172,6 +186,7 @@ df_sum <- df %>%
   group_by(Location, Light, Device) %>% 
   summarise(M_HR_P = round(mean(polar_hr),1),
             M_HR_B = round(mean(b_hr),1),
+            M_QoS = round(mean(QoS),1),
             MAPE = round(MAPE(b_hr,polar_hr)*100,1),
             MAE = round(MAE(b_hr,polar_hr),1),
             Pearson_Corr = round(cor(b_hr,polar_hr),2),
@@ -204,59 +219,34 @@ ICC <- g +
              linetype="dashed",
              color="red")
 ICC
+
+
+##QoS
+g<-ggplot(df_sum,aes(x=Device,y=M_QoS))
+QoS <- g + 
+  geom_bar(stat='identity', 
+           position=position_dodge(),
+           aes(fill=Light),
+           color='black') + 
+  facet_grid(Location~.) +
+  labs(y="QoS")
+QoS
 ###########################################
 #Plot individual figure
-setwd('C:/Users/57lzhang.US04WW4008/Desktop/Ear dome eva/All Sunlight/New folder')
-temp<-list.files(pattern = "^PTek*")
-df <- data.frame()
-
-for (i in temp) {
-  #string operations
-  tt<-str_split(i,'-')[[1]][3]
-  activity <- str_split(tt, ' ')[[1]][3]
-  location <- str_split(tt, ' ')[[1]][4]
-  subject <- str_split(tt, ' ')[[1]][2]
-  light_csv <-str_split(tt, ' ')[[1]][9]
-  light<-gsub(".csv", "", light_csv)
-  version <- str_split(tt, ' ')[[1]][8]
-  
-  
-  #data operations
-  t <- read.csv(i, header = T)
-  
-  #find the correct HR column  
-  
-  Polar_HR_idx = grep("^Polar*",colnames(t))+1
-  Bio_HR_idx = grep("^ENOS*",colnames(t))+1
-  
-  
-  #select polar and product HR column
-  t0 <- t%>%select(polar_hr = colnames(t)[Polar_HR_idx],
-                   b_hr = colnames(t)[Bio_HR_idx],
-                   Timestamp)
-  
-  t1 <- t0%>%
-    mutate(Activity = activity)%>%
-    mutate(Location = location)%>%
-    mutate(Light = light)%>%
-    mutate(Subject = subject)%>%
-    mutate(Time = as.numeric(row.names(t0)))%>%
-    mutate(Version = version)
-  
-  df <-bind_rows(t1,df)
-}
-
+directory = 'C:/Users/57lzhang.US04WW4008/Desktop/Ear dome eva/All Sunlight/New folder'
+df <-sun_tb(directory)
 
 p <-ggplot(df,aes(x = Time))+
-  geom_line(aes(y=b_hr,color="darkred"),size=1)+
-  geom_line(aes(y=polar_hr,color="steelblue"),size=1)+
-  ggtitle("No Sunglass")+
-  ylim(50,110)+
-  ylab("Heart Rate (bpm)")+
+  geom_line(aes(y=b_hr),color="red",size=1)+
+  geom_line(aes(y=polar_hr),color="steelblue",size=1)+
+  geom_line(aes(y=QoS), color = "darkgreen", size=1)+
+  ggtitle("Sunglass")+
+  ylim(0,110)+
+  ylab("Heart Rate (bpm) / QoS (%)")+
   xlab("Seconds(s)")+
   facet_grid(Subject~Location)+
   scale_color_discrete(name = "Sensor", 
-                       labels = c("BiometRIC", "Polar"))+
+                       labels = c("BiometRIC","Polar","B_QoS"))+
   theme(axis.text=element_text(size=12),
         axis.title.x = element_text(size=16),
         axis.title.y = element_text(size=16),

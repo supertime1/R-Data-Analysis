@@ -24,6 +24,8 @@ for (i in temp) {
   tt<-str_split(i,'-')[[1]][5]
   #extract activity type from each filename
   activity <- str_split(tt, ' ')[[1]][3]
+  #extract subject from each filename
+  subject <- str_split(tt, ' ')[[1]][2]
   #extract dome color type from each filename
   color_csv <- str_split(tt, ' ')[[1]][8]
   color<-gsub(".csv", "", color_csv)
@@ -48,7 +50,8 @@ for (i in temp) {
   t1 <- t0%>%
     mutate(Activity = activity)%>%
     mutate(Color = color)%>%
-    mutate(Type = type)
+    mutate(Type = type)%>%
+    mutate(Subject = toupper(subject))
   #select the first 3mins data, with excluding the first 30s
   t1<-t1%>%slice(32:212)
   
@@ -61,6 +64,7 @@ for (i in temp) {
 unique(df$Color)
 unique(df$Activity)
 unique(df$Type)
+unique(df$Subject)
 
 #this will create a summarized table
 #pay attention to the order or HR, HR.1 in raw csv file, 
@@ -71,7 +75,7 @@ unique(df$Type)
 #..where the order of HR,HR.1 doesn't matter
 df_sum_act <- df %>% 
   drop_na(b_hr,polar_hr)%>% 
-  group_by(Color, Activity, Type) %>% 
+  group_by(Color, Activity, Type, Subject) %>% 
   summarise(M_HR_P = round(mean(polar_hr),1),
             M_HR_B = round(mean(b_hr),1),
             M_QoS = round(mean(QoS),1),
@@ -96,22 +100,66 @@ df_sum <- df %>%
 
 formattable(df_sum)
 
-#make a bar plot
-##MAPE
-g<-ggplot(df_sum_act,aes(x=Type,y=MAPE))
+
+#make a barplot
+#MAPE
+g<-ggplot(df_sum,aes(x=Type,y=MAPE))
 MAPE <- g + 
   geom_bar(stat='identity', 
            position=position_dodge(),
+           aes(fill=Light),
+           color='black') + 
+  facet_grid(Activity~.) +
+  labs(y="MAPE(%)")+
+  geom_hline(yintercept=10,
+             linetype="dashed",
+             color="red")
+MAPE
+
+
+#ICC
+g<-ggplot(df_sum,aes(x=Type,y=ICC))
+MAPE <- g + 
+  geom_bar(stat='identity', 
+           position=position_dodge(),
+           aes(fill=Light),
+           color='black') + 
+  facet_grid(Activity~.) +
+  labs(y="ICC(%)")+
+  geom_hline(yintercept=0.75,
+             linetype="dashed",
+             color="red")
+MAPE
+
+
+#make a boxplot
+##Corr
+g<-ggplot(df_sum_act,aes(x=Type,y=Pearson_Corr))
+Corr <- g + 
+  geom_boxplot(
+    aes(fill=Color),
+    color='black') + 
+  facet_grid(Activity~.) +
+  labs(y="Corr(%)")
+
+Corr
+
+##MAPE
+g<-ggplot(df_sum_act,aes(x=Type,y=MAPE))
+MAPE <- g + 
+  geom_boxplot(
            aes(fill=Color),
            color='black') + 
   facet_grid(Activity~.) +
-  labs(y="MAPE(%)")
+  labs(y="MAPE(%)")+
+  geom_hline(yintercept=10,
+             linetype="dashed",
+             color="red")
 MAPE
 ##ICC
 g<-ggplot(df_sum_act,aes(x=Type,y=ICC))
 ICC <- g + 
-  geom_bar(stat='identity', 
-           position=position_dodge(),
+  geom_boxplot(
            aes(fill=Color),
            color='black') + 
   facet_grid(Activity~.) +
@@ -120,6 +168,15 @@ ICC <- g +
              linetype="dashed",
              color="red")
 ICC
+##QoS
+g<-ggplot(df_sum,aes(x=Device,y=M_QoS))
+QoS <- g + 
+  geom_boxplot(
+           aes(fill=Color),
+           color='black') + 
+  facet_grid(Location~.) +
+  labs(y="QoS")
+QoS
 ##############################################
 #Sunlight
 ##Make bar plot
@@ -163,6 +220,8 @@ sun_tb <-function(directory){
       mutate(Time = as.numeric(row.names(t0)))%>%
       mutate(Device = toupper(device))
     
+    t1<-t1%>%slice(1:212)
+    
     df <-bind_rows(t1,df)
   }
   
@@ -183,7 +242,7 @@ unique(df$Activity)
 #make a stats table
 df_sum <- df %>% 
   drop_na(b_hr,polar_hr)%>% 
-  group_by(Location, Light, Device) %>% 
+  group_by(Location, Light, Device, Subject) %>% 
   summarise(M_HR_P = round(mean(polar_hr),1),
             M_HR_B = round(mean(b_hr),1),
             M_QoS = round(mean(QoS),1),
@@ -191,8 +250,8 @@ df_sum <- df %>%
             MAE = round(MAE(b_hr,polar_hr),1),
             Pearson_Corr = round(cor(b_hr,polar_hr),2),
             ICC = round(ICC(data.frame(b_hr,polar_hr))$results[2,2],2))
-
 formattable(df_sum)
+
 
 #make a bar plot
 #MAPE
@@ -203,7 +262,10 @@ MAPE <- g +
            aes(fill=Light),
            color='black') + 
   facet_grid(Location~.) +
-  labs(y="MAPE(%)")
+  labs(y="MAPE(%)")+
+  geom_hline(yintercept=10,
+             linetype="dashed",
+             color="red")
 MAPE
 
 ##ICC
@@ -231,6 +293,46 @@ QoS <- g +
   facet_grid(Location~.) +
   labs(y="QoS")
 QoS
+
+
+#make a boxplot
+#MAPE
+g<-ggplot(df_sum,aes(x=Device,y=MAPE))
+MAPE <- g + 
+  geom_boxplot(
+           aes(fill=Light),
+           color='black') + 
+  facet_grid(Location~.) +
+  labs(y="MAPE(%)")+
+  geom_hline(yintercept=10,
+             linetype="dashed",
+             color="red")
+MAPE
+
+##ICC
+g<-ggplot(df_sum,aes(x=Device,y=ICC))
+ICC <- g + 
+  geom_boxplot(
+           aes(fill=Light),
+           color='black') + 
+  facet_grid(Location~.) +
+  labs(y="ICC")+
+  geom_hline(yintercept=0.75,
+             linetype="dashed",
+             color="red")
+ICC
+
+
+##QoS
+g<-ggplot(df_sum,aes(x=Device,y=M_QoS))
+QoS <- g + 
+  geom_boxplot(
+           aes(fill=Light),
+           color='black') + 
+  facet_grid(Location~.) +
+  labs(y="QoS")
+QoS
+
 ###########################################
 #Plot individual figure
 directory = 'C:/Users/57lzhang.US04WW4008/Desktop/Ear dome eva/All Sunlight/New folder'

@@ -339,21 +339,20 @@ directory = 'C:/Users/57lzhang.US04WW4008/Desktop/Ear dome eva/All Sunlight/New 
 df <-sun_tb(directory)
 
 p <-ggplot(df,aes(x = Time))+
-  geom_line(aes(y=b_hr),color="red",size=1)+
-  geom_line(aes(y=polar_hr),color="steelblue",size=1)+
-  geom_line(aes(y=QoS), color = "darkgreen", size=1)+
-  ggtitle("Sunglass")+
+  geom_line(aes(y=b_hr,colour="BiometRic"),size=1)+
+  geom_line(aes(y=polar_hr,colour="Polar"),size=1)+
+  geom_line(aes(y=QoS, colour = "QoS"), size=1)+
+  ggtitle("No Sunglass")+
   ylim(0,110)+
   ylab("Heart Rate (bpm) / QoS (%)")+
   xlab("Seconds(s)")+
   facet_grid(Subject~Location)+
-  scale_color_discrete(name = "Sensor", 
-                       labels = c("BiometRIC","Polar","B_QoS"))+
+  scale_color_discrete(name = "Device")+
   theme(axis.text=element_text(size=12),
-        axis.title.x = element_text(size=16),
-        axis.title.y = element_text(size=16),
-        legend.title = element_text(size=16),
-        legend.text = element_text(size=16))
+        axis.title.x = element_text(size=14),
+        axis.title.y = element_text(size=14),
+        legend.title = element_text(size=14),
+        legend.text = element_text(size=14))
 print(p)
 
 

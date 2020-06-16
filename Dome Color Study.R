@@ -73,24 +73,11 @@ unique(df$Subject)
 
 #ICC function takes a single argument - dataframe, 
 #..where the order of HR,HR.1 doesn't matter
-df_sum_act <- df %>% 
-  drop_na(b_hr,polar_hr)%>% 
-  group_by(Color, Activity, Type, Subject) %>% 
-  summarise(M_HR_P = round(mean(polar_hr),1),
-            M_HR_B = round(mean(b_hr),1),
-            M_QoS = round(mean(QoS),1),
-            MAPE = round(MAPE(b_hr,polar_hr)*100,1),
-            MAE = round(MAE(b_hr,polar_hr),1),
-            Pearson_Corr = round(cor(b_hr,polar_hr),2),
-            ICC = round(ICC(data.frame(b_hr,polar_hr))$results[2,2],2))
-
-formattable(df_sum_act)
-
-#turn off the Activity group
 df_sum <- df %>% 
   drop_na(b_hr,polar_hr)%>% 
-  group_by(Color, Type) %>% 
-  summarise(M_HR_P = round(mean(polar_hr),1),
+  group_by(Color, Type, Activity,Subject) %>% 
+  summarise(N_of_Points = n(),
+            M_HR_P = round(mean(polar_hr),1),
             M_HR_B = round(mean(b_hr),1),
             M_QoS = round(mean(QoS),1),
             MAPE = round(MAPE(b_hr,polar_hr)*100,1),
@@ -107,7 +94,7 @@ g<-ggplot(df_sum,aes(x=Type,y=MAPE))
 MAPE <- g + 
   geom_bar(stat='identity', 
            position=position_dodge(),
-           aes(fill=Light),
+           aes(fill=Color),
            color='black') + 
   facet_grid(Activity~.) +
   labs(y="MAPE(%)")+
@@ -122,7 +109,7 @@ g<-ggplot(df_sum,aes(x=Type,y=ICC))
 MAPE <- g + 
   geom_bar(stat='identity', 
            position=position_dodge(),
-           aes(fill=Light),
+           aes(fill=Color),
            color='black') + 
   facet_grid(Activity~.) +
   labs(y="ICC(%)")+
@@ -133,50 +120,18 @@ MAPE
 
 
 #make a boxplot
-##Corr
-g<-ggplot(df_sum_act,aes(x=Type,y=Pearson_Corr))
-Corr <- g + 
-  geom_boxplot(
-    aes(fill=Color),
-    color='black') + 
-  facet_grid(Activity~.) +
-  labs(y="Corr(%)")
-
-Corr
-
 ##MAPE
-g<-ggplot(df_sum_act,aes(x=Type,y=MAPE))
+g<-ggplot(df_sum,aes(x=Type,y=MAPE))
 MAPE <- g + 
-  geom_boxplot(
-           aes(fill=Color),
-           color='black') + 
+  geom_boxplot(aes(fill=Color),
+               color='black') + 
   facet_grid(Activity~.) +
   labs(y="MAPE(%)")+
   geom_hline(yintercept=10,
              linetype="dashed",
              color="red")
 MAPE
-##ICC
-g<-ggplot(df_sum_act,aes(x=Type,y=ICC))
-ICC <- g + 
-  geom_boxplot(
-           aes(fill=Color),
-           color='black') + 
-  facet_grid(Activity~.) +
-  labs(y="ICC")+
-  geom_hline(yintercept=0.75,
-             linetype="dashed",
-             color="red")
-ICC
-##QoS
-g<-ggplot(df_sum,aes(x=Device,y=M_QoS))
-QoS <- g + 
-  geom_boxplot(
-           aes(fill=Color),
-           color='black') + 
-  facet_grid(Location~.) +
-  labs(y="QoS")
-QoS
+
 ##############################################
 #Sunlight
 ##Make bar plot

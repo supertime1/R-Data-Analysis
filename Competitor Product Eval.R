@@ -82,23 +82,11 @@ unique(df$Subject)
 #ICC function takes a single argument - dataframe, 
 #..where the order of HR,HR.1 doesn't matter
 
-df_sum_act <- df %>% 
-  drop_na(polar_hr,p_hr)%>% 
-  group_by(Product, Activity, Subject) %>% 
-  summarise(M_HR_P = round(mean(polar_hr),1),
-            M_HR_B = round(mean(p_hr),1),
-            MAPE = round(MAPE(p_hr,polar_hr)*100,1),
-            MAE = round(MAE(p_hr,polar_hr),1),
-            Pearson_Corr = round(cor(p_hr,polar_hr),2),
-            ICC = round(ICC(data.frame(p_hr,polar_hr))$results[2,2],2))
-
-formattable(df_sum_act)
-
-#turn off the Activity group
 df_sum <- df %>% 
   drop_na(polar_hr,p_hr)%>% 
-  group_by(Product) %>% 
-  summarise(M_HR_P = round(mean(polar_hr),1),
+  group_by(Product, Activity) %>% 
+  summarise(N_of_Points = n(),
+            M_HR_P = round(mean(polar_hr),1),
             M_HR_B = round(mean(p_hr),1),
             MAPE = round(MAPE(p_hr,polar_hr)*100,1),
             MAE = round(MAE(p_hr,polar_hr),1),
@@ -109,21 +97,23 @@ formattable(df_sum)
 
 #make a bar plot
 ##MAPE
-g<-ggplot(df_sum_act,aes(x=Product,y=MAPE))
+g<-ggplot(df_sum,aes(x=Product,y=MAPE))
 MAPE <- g + 
-  geom_boxplot(
+  geom_bar(stat='identity', 
+           position=position_dodge(),
            aes(fill=Product),
            color='black') + 
   facet_grid(Activity~.) +
   geom_hline(yintercept=10,
              linetype="dashed",
-             color="red")
+             color="red")+
   labs(y="MAPE(%)")
 MAPE
 ##ICC
-g<-ggplot(df_sum_act,aes(x=Product,y=ICC))
+g<-ggplot(df_sum,aes(x=Product,y=ICC))
 ICC <- g + 
-  geom_boxplot(
+  geom_bar(stat='identity',
+           position=position_dodge(),
            aes(fill=Product),
            color='black') + 
   facet_grid(Activity~.) +
@@ -132,7 +122,19 @@ ICC <- g +
              linetype="dashed",
              color="red")
 ICC
-
+#make a boxplot
+##MAPE
+g<-ggplot(df_sum,aes(x=Product,y=MAPE))
+MAPE <- g + 
+  geom_boxplot(
+           aes(fill=Product),
+           color='black') + 
+  facet_grid(Activity~.) +
+  geom_hline(yintercept=10,
+             linetype="dashed",
+             color="red")+
+  labs(y="MAPE(%)")
+MAPE
 ##############################################
 #Sunlight
 ##Make bar plot

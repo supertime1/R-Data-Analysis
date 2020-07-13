@@ -1,0 +1,250 @@
+---
+title: "BiometRIC data analysis"
+output: html_document
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+#####Contact: 
+
+Lu Zhang, lu.zhang@sonova.com for clinical data questions.
+
+## Introduction
+This document hosts the code of BiometRic data analysis. Please set working directory of data files before calling functions.
+
+```{r setup}
+knitr::opts_knit$set(root.dir = "C:/Users/57lzhang/Desktop/R code for Data Science/Gen2 QoS Summary")
+```
+
+###Call all packages
+```{r package,echo=TRUE,warning=FALSE,message=FALSE}
+library(dplyr)
+library(tidyr)
+library(MLmetrics)
+library(ggplot2)
+library(gridExtra)
+library(stringr)
+library(gmodels)
+library(caret)
+library(psych)
+library(formattable)
+```
+
+
+###Accuracy Table
+```{r accuracy table,echo=TRUE,warning=FALSE,message=FALSE}
+table_all <- function(){
+  temp <- list.files(pattern="^PTek*")
+  df <- data.frame()
+  for (i in temp){
+    ##substract subject id and activity type from filename
+    tt<-str_split(i,'-')[[1]][3]
+    Subject<-str_split(tt,' ')[[1]][2]
+    Subject<-str_c("F-",Subject)
+    Activity<-str_split(tt,' ')[[1]][3]
+    ##label data with subject and activity
+    t<-read.csv(i,header = T)
+    t1<-t%>%mutate(Subject = Subject)%>%mutate(Activity = Activity)
+    t1 <- subset(t1, select = -c(RRi,RRi.1))
+    t1<-t1%>%slice(32:212)
+    ##combine all files into one
+    df <- bind_rows(t1,df)
+  }
+  df <- df%>%mutate(Diff = HR.1 - HR)
+  table <- df%>%group_by(Activity)%>%drop_na(HR.1,HR)%>%
+    summarise(Counts = round(length(HR.1)),
+              Mean_Bio = round(mean(HR.1),1),
+              SD_Bio = round(sd(HR.1),1),
+              Mean_Polar = round(mean(HR),1),
+              SD_Polar = round(sd(HR),1),
+              Pearson_Corr = round(cor(HR,HR.1),2),
+              Bias = round(mean(Diff),1),
+              MAE = round(MAE(HR.1,HR),1),
+              MAPE = round(MAPE(HR.1,HR)*100,1)
+             # Bias_CI_l = round(ci(Diff, 0.95, 0.05,na.rm=T)[2],1),
+            #Bias_CI_h = round(ci(Diff, 0.95, 0.05,na.rm=T)[3],1)
+    )
+  
+  ##calculate ICC
+  icc_all <-data.frame()
+  for (i in c("housework","running","biking","walking","drinking","chewing","talking","sitting")){
+    icc<-round(ICC(df%>%filter(Activity == i)
+                   %>%select(HR,HR.1)%>%drop_na())$results[3,2],2)
+    icc_ci_low <- round(ICC(df%>%filter(Activity == i)
+                            %>%select(HR,HR.1)%>%drop_na())$results[3,7],2)
+    icc_ci_high <- round(ICC(df%>%filter(Activity == i)
+                             %>%select(HR,HR.1)%>%drop_na())$results[3,8],2)
+    df_icc<-data.frame(Activity = i,ICC = icc) #ICC_CI_l = icc_ci_low, ICC_CI_h = icc_ci_high 
+    icc_all <- bind_rows(df_icc,icc_all)
+  }
+  
+  ##join two tables
+  full_table<-left_join(table,icc_all,by="Activity")%>%arrange(desc(ICC))
+  ##calculate average of all stats
+  summary_row<-summarise_each(full_table,funs(mean))
+  
+  return(list(
+    "table" = formattable(full_table, align = c("l",rep("c", ncol(full_table) - 5),"r","r","r","r"),list(
+    `Activity` = formatter("span", style = ~ style(color ="grey",
+                                                   font.weight = "bold")),
+    `ICC` = color_bar("#FA614B"),
+    `MAPE` = color_bar("#B1CBEB"),
+    `MAE` = color_bar("#71CA97"),
+    `Bias` = formatter("span",style = ~ style(color = ifelse(`Bias`> 0, "green","red")))
+
+    )),
+              
+    "summary" = formattable(round(summary_row,2),align = c("l",rep("c", ncol(summary_row) - 1)),list(
+    `Activity` = formatter("span", style = ~ style(color ="grey",
+                                                   font.weight = "bold"))
+    ))
+    ))
+}
+```
+Call table_all function
+```{r,table call,echo=TRUE,warning=FALSE,message=FALSE}
+calltable<-table_all()
+calltable$table
+calltable$summary
+```
+
+
+###Boxplot
+boxplot_all function returns two plots - mae vs activties, mape vs activities of all subjects statistics
+```{r boxplot,echo=TRUE,warning=FALSE,message=FALSE}
+boxplot_all <- function(){
+  temp <- list.files(pattern="^PTek*")
+  df <- data.frame()
+  for (i in temp){
+    ##substract subject id and activity type from filename
+    tt<-str_split(i,'-')[[1]][3]
+    Subject<-str_split(tt,' ')[[1]][2]
+    Subject<-str_c("F-",Subject)
+    Activity<-str_split(tt,' ')[[1]][3]
+    ##label data with subject and activity
+    t<-read.csv(i,header = T)
+    t1<-t%>%mutate(Subject = Subject)%>%mutate(Activity = Activity)
+    t1 <- subset(t1, select = -c(RRi,RRi.1))
+    t1<-t1%>%slice(32:212)
+    ##combine all files into one
+    df <- bind_rows(t1,df)
+  }
+  df$Activity <- factor(df$Activity,levels = c("sitting", "talking", "chewing", "drinking", "walking", "biking","running","housework"))
+  mae_act<-df%>%group_by(Activity,Subject)%>%drop_na(HR.1,HR)%>%summarise(MAE = MAE(HR.1,HR))
+  mape_act <-df%>%group_by(Activity,Subject)%>%drop_na(HR.1,HR)%>%summarise(MAPE = MAPE(HR.1,HR)*100)
+  mae_boxplot<-ggplot(mae_act,aes(Activity,MAE,fill = Activity))+geom_boxplot()+ylab("MAE (bpm)")+ggtitle("MAE vs Activity in all Subjects")+ylim(c(0,50))
+  mape_boxplot<-ggplot(mape_act,aes(Activity,MAPE,fill = Activity))+geom_boxplot()+ylab("MAPE (%)")+ggtitle("MAPE vs Activity in all Subjects")+geom_hline(yintercept = 10,linetype="dashed", color = "red")+ylim(c(0,50))
+  return(list("mae_boxplot" = mae_boxplot, "mape_boxplot" = mape_boxplot))
+}
+```
+Call boxplot_all function
+```{r,boxplot call,echo=TRUE,warning=FALSE,message=FALSE}
+bp<-boxplot_all()
+bp$mae_boxplot
+bp$mape_boxplot
+```
+
+###Confusion matrix
+confusion_matrix function returns confusion matrix of polar and biometric in HR zone categorizing.
+```{r setwd,echo=TRUE,warning=FALSE,message=FALSE}
+confusion_matrix <- function(){
+  ##create R dataframe from csv datafiles
+  temp <- list.files(pattern="^PTek*")
+  df <- data.frame()
+  for (i in temp){
+    ##substract subject id and activity type from filename
+    tt<-str_split(i,'-')[[1]][3]
+    Subject<-str_split(tt,' ')[[1]][2]
+    Subject<-str_c("F-",Subject)
+    Activity<-str_split(tt,' ')[[1]][3]
+    ##label data with subject and activity
+    t<-read.csv(i,header = T)
+    t1<-t%>%mutate(Subject = Subject)%>%mutate(Activity = Activity)
+    t1 <- subset(t1, select = -c(RRi,RRi.1))
+    t1<-t1%>%slice(32:212)
+    ##combine all files into one
+    df <- bind_rows(t1,df)
+  }
+  ##calculate confusion matrix
+  df$BiometRIC<-cut(df$HR.1,c(0,100,200),labels = c("Non-vigorous","Vigorous"))
+  df$Polar<-cut(df$HR,c(0,100,200),labels = c("Non-vigorous","Vigorous"))
+  df$BiometRIC <- factor(df$BiometRIC,levels=c("Vigorous","Non-vigorous"))
+  df$Polar <- factor(df$Polar,levels=c("Vigorous","Non-vigorous"))
+  cm<-confusionMatrix(df$BiometRIC,df$Polar,positive="Vigorous")
+  return(cm)
+}
+```
+Call confusion_matrix funcion, where reference is Polar H10, prediction is BiometRic
+```{r cm, echo=TRUE,warning=FALSE,message=FALSE}
+confusion_matrix()
+```
+
+###QoS
+qos funtion returns two plots - mean absolute error vs qos, and data availability vs qos.
+```{r qos,echo=TRUE,warning=FALSE,message=FALSE}
+qos<-function(){
+  ##create R dataframe from csv datafiles
+  temp <- list.files(pattern="^PTek*")
+  df <- data.frame()
+  for (i in temp){
+    ##substract subject id and activity type from filename
+    tt<-str_split(i,'-')[[1]][3]
+    Subject<-str_split(tt,' ')[[1]][2]
+    Subject<-str_c("F-",Subject)
+    Activity<-str_split(tt,' ')[[1]][3]
+    ##label data with subject and activity
+    t<-read.csv(i,header = T)
+    t1<-t%>%mutate(Subject = Subject)%>%mutate(Activity = Activity)
+    t1 <- subset(t1, select = -c(RRi,RRi.1))
+    t1<-t1%>%slice(32:212)
+    ##combine all files into one
+    df <- bind_rows(t1,df)
+  }
+  
+  ##category QoS data with 5% interval
+  df$QoS_C <- cut(df$QoS, seq(0,100,5))
+  df$QoS_F<-addNA(df$QoS_C)
+  levels(df$QoS_F) <- c(0,levels(df$QoS_C))
+  df$QoS_label <- factor(df$QoS_F, levels=levels(df$QoS_F),
+    labels=c(seq(0,100,5)))
+  df$QoS_num<-as.numeric(as.character(df$QoS_label))
+  
+  ##Making plot
+  ###mape vs. QoS
+  mae <- data.frame(Activity=c("sitting", "talking", "chewing", "drinking", "walking", "biking","running","housework"))
+  for (n in c(0:19)){
+    mae_cat<-df%>%filter(QoS_num >= 5*n)%>%group_by(Activity)%>%drop_na(HR.1,HR)%>%summarise(MAPE = MAPE(HR.1,HR)*100)
+    mae<-left_join(mae,mae_cat,by="Activity")
+    colnames(mae)[n+2]<-c(paste("",5*n,sep=""))
+  }
+  mae<-gather(mae,"QoS","MAPE",2:21)
+  mae$MAPE<-as.numeric(mae$MAPE)
+  mae$QoS<-as.factor(as.numeric(as.character(mae$QoS)))
+  mae$Activity <- factor(mae$Activity,levels = c("sitting", "talking", "chewing", "drinking", "walking", "biking","running","housework"))
+  mae_qos<-ggplot(mae,aes(QoS,MAPE,fill=Activity))+geom_bar(stat="identity")+facet_grid(Activity~.)+xlab("QoS level for retaining data")+ylab("MAPE (%)")+ggtitle("MAPE vs. QoS level for retaining data")+geom_hline(yintercept = 10,linetype="dashed", color = "red")
+  
+  ##DATA availability vs. QoS
+  mae_count_before<-df%>%group_by(Activity)%>%drop_na(HR.1,HR)%>%summarise(count_before=length(HR.1))
+  for (n in c(0:19)){
+    mae_count_after<-df%>%filter(QoS_num >= 5*n)%>%group_by(Activity)%>%drop_na(HR.1,HR)%>%summarise(count_after=length(HR.1))
+    mae_count_before<-left_join(mae_count_before,mae_count_after,by="Activity")
+    mae_count_before[n+3]<- mae_count_before$count_after/mae_count_before$count_before*100
+    colnames(mae_count_before)[n+3]<-c(paste("",5*n,sep=""))
+  }
+  
+  mae_count<-gather(mae_count_before[-2],"QoS","DA",2:21)
+  
+  mae_count$DA<-as.numeric(mae_count$DA)
+  mae_count$QoS<-as.factor(as.numeric(as.character(mae_count$QoS)))
+  mae_count$Activity <- factor(mae_count$Activity,levels = c("sitting", "talking", "chewing", "drinking", "walking", "biking","running","housework"))
+  
+  da_qos<-ggplot(mae_count,aes(QoS,DA,fill=Activity))+geom_bar(stat="identity")+facet_grid(Activity~.)+xlab("QoS level for retaining data")+ylab("Data availability (%)")+ggtitle("Data Availability vs. QoS level for retaining data")+geom_hline(yintercept = 80,linetype="dashed", color = "red")
+  return(list("mae"=mae_qos,"da"=da_qos))
+}
+```
+
+Call qos function:
+```{r qos call,echo=TRUE,warning=FALSE,message=FALSE}
+qos<-qos()
+qos$mae
+qos$da
+```

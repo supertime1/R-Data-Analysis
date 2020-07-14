@@ -3,6 +3,7 @@ library(tidyr)
 library(stringr)#String operations
 library(dplyr)
 library(ggplot2)
+library(ggExtra)
 
 setwd('C:/Users/57lzhang.US04WW4008/Desktop/Floyer data/Gen2/')
 temp<-list.files(pattern = "^PTek*")
@@ -57,10 +58,18 @@ unique(df$Subject)
 
 df<-df%>%drop_na(polar_hr,bio_hr)
 
+#####################################
+#####################################
 #Plot BA plot for all subjects and activities
 ba.stats<-bland.altman.stats(df$polar_hr, df$bio_hr)
 
-overall_plot<-ggplot(df, aes(polar_hr, diff))+
+#calculate how many percent points are out of two LOAs
+higher <- df%>%filter(diff > ba.stats$lines[3])
+lower <- df%>%filter(diff<ba.stats$lines[1])
+outlier_per<- 100 * round((nrow(higher) + nrow(lower))/nrow(df),2)
+
+#plot BA plot for all subjects and all activities
+overall_plot<-ggplot(df, aes(polar_hr, diff, col = Activity))+
   geom_point() + 
   labs(x='Polar HR(bpm)', 
        y='Bio - Polar(bpm)',
@@ -68,7 +77,8 @@ overall_plot<-ggplot(df, aes(polar_hr, diff))+
        subtitle = 'BiometRIC Gen 2 vs Polar H10',
        caption = paste(paste('Mean difference: ',round(ba.stats$lines[2],1),'\n'),
                        paste('Lower LOA: ',round(ba.stats$lines[1],1),'\n'),
-                       paste('Upper LOA: ',round(ba.stats$lines[3],1),'\n')))+
+                       paste('Upper LOA: ',round(ba.stats$lines[3],1),'\n'),
+                       paste('There are ', outlier_per, '% points outside of lower and upper LOA lines \n')))+
   geom_hline(yintercept = ba.stats$lines, lty=c(2,2,2), 
        col=c("blue","red","blue"), 
        lwd=c(1,1,1))+
@@ -79,8 +89,10 @@ overall_plot<-ggplot(df, aes(polar_hr, diff))+
              col=c("lightblue","lightblue","pink","pink","lightblue","lightblue"),
              lwd=c(1,1,1,1,1,1))
 print(overall_plot)
+ggMarginal(overall_plot, type = 'histogram', fill ="transparent")
 
-
+##########################################
+###########################################
 #Plot BA plot for all subjects per activities
 for(i in unique(df$Activity)){
   df_i <- df%>%filter(Activity == i)
@@ -92,7 +104,7 @@ for(i in unique(df$Activity)){
   outlier_per<- 100 * round((nrow(higher) + nrow(lower))/nrow(df_i),2)
   
   #make ggplot
-  activity_plot_i<-ggplot(df_i, aes(polar_hr, diff))+
+  activity_plot_i<-ggplot(df_i, aes(polar_hr, diff,col=Subject))+
     geom_point() + 
     labs(x='Polar HR(bpm)', y='Bio - Polar(bpm)')+
     labs(x='Polar HR(bpm)', 
@@ -113,10 +125,11 @@ for(i in unique(df$Activity)){
                col=c("lightblue","lightblue","pink","pink","lightblue","lightblue"),
                lwd=c(1,1,1,1,1,1))
 
-  print(activity_plot_i)
+  print(ggMarginal(activity_plot_i, type = 'histogram', fill ="transparent"))
 }
 
-
+#####################################
+######################################
 #Plot BA plot for all activities per subject
 for(i in unique(df$Subject)){
   df_i <- df%>%filter(Subject == i)
@@ -128,7 +141,7 @@ for(i in unique(df$Subject)){
   outlier_per<- 100 * round((nrow(higher) + nrow(lower))/nrow(df_i),2)
   
   #make ggplot
-  subject_plot_i<-ggplot(df_i, aes(polar_hr, diff))+
+  subject_plot_i<-ggplot(df_i, aes(polar_hr, diff, col=Activity))+
     geom_point() + 
     labs(x='Polar HR(bpm)', 
          y='Bio - Polar(bpm)',
@@ -148,5 +161,5 @@ for(i in unique(df$Subject)){
                col=c("lightblue","lightblue","pink","pink","lightblue","lightblue"),
                lwd=c(1,1,1,1,1,1))
   
-  print(subject_plot_i)
+  print(ggMarginal(subject_plot_i, type = 'histogram', fill ="transparent"))
 }
